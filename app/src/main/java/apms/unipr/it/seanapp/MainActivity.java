@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private String imagePath = null, maskPath = null, maskColPath = null;
     private String imageName = null, maskName = null;
     private String default_mask = "28022";
-    private Module mModule = null, mModule2 = null;
+    private Module mModule = null;
     private ImageView imageView, imageView2;
     private Button buttonTransform, buttonSave;
     private ProgressBar mProgressBar;
@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         //Load the module
         try {
-            mModule2 = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean.ptl"));
+            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean.ptl"));
             //mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean_scripted_optimized.ptl"));
         } catch (IOException e) {
             Log.e(TAG, "Error reading assets", e);
@@ -548,7 +548,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
      * @return Tensor denormalized with same shape of input
      */
     public static Tensor denormalize(Tensor tens, boolean checkVal) {
-        // values mask [-1,+1]
+        // values tens [-1,+1]
         // val = ((val + 1)/2)*255.0
         float[] tensFloat = tens.getDataAsFloatArray();
         float[] new_tens = new float[tensFloat.length];
@@ -854,12 +854,11 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         long startTime = SystemClock.elapsedRealtime();
         //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.dictStringKeyFrom(styleCodeIVal)).toTensor();
-        //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor)).toTensor();
-        Tensor outputTensor = mModule2.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor)).toTensor();
+        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor)).toTensor();
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
 
-        //Log.d(TAG, "outputTensor: " + outputTensor);
+        Log.d(TAG, "outputTensor: " + outputTensor);
 
         //Denormalization of outputTensor
         Tensor outputTensorNormalized = denormalize(outputTensor, false);
@@ -886,7 +885,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         }*/
 
         imageResultBitmap = res;
-        //imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
+        imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
 
         runOnUiThread(new Runnable() {
             @Override
