@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">SEANapp</string>
+    <string name="image_view">Image View</string>
+    <string name="button_transform">Transform</string>
+    <string name="run_model">Running the model...</string>
+    <string name="button_save">Save</string>
+    <string name="save_photo">Saving...</string>
+    <string name="photo">Photo</string>
+    <string name="mask">Mask</string>
+    <string name="mask_default">Mask Default</string>
+    <string name="selection_parts">Select parts</string>
+    <string name="type_result">Type of result</string>
+    <string name="grayscale_im">Grayscale</string>
+    <string name="rgb_im">RGB</string>
+    <string name="eyes">Eyes</string>
+    <string name="ears">Ears</string>
+    <string name="mouth">Mouth</string>
+
+</resources>
