@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private static final String TAG = "SEANAppTag";
     private static final float[] NORM_MEAN_RGB = {0.5f, 0.5f, 0.5f};
 
-    private Bitmap imageBitmap, maskBitmap, maskColBitmap, imageResultBitmap;
+    private Bitmap imageBitmap, maskBitmap, maskColBitmap, imageResultBitmap, maskImageBitmap;
     List<Float> arraylist = new ArrayList<>();
     boolean label = false, vis = false, grayscale = false;
     private String imagePath = null, maskPath = null, maskColPath = null;
@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
             imageBitmap = BitmapFactory.decodeStream(getAssets().open("img/" + default_mask + ".jpg"));
             maskBitmap = BitmapFactory.decodeStream(getAssets().open("labels/" + default_mask + ".png"));
             maskColBitmap = BitmapFactory.decodeStream(getAssets().open("vis/" + default_mask + ".png"));
+            //maskImageBitmap = BitmapFactory.decodeStream(getAssets().open(default_mask + ".png"));
             maskName = default_mask;
             imageName = default_mask;
         } catch (IOException e) {
@@ -159,7 +160,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         //Load the module
         try {
-            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean.ptl"));
+            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean2.ptl"));
             //mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean_scripted_optimized.ptl"));
         } catch (IOException e) {
             Log.e(TAG, "Error reading assets", e);
@@ -353,7 +354,12 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                             }
                             imageView.setImageBitmap(imageBitmap);
                             imagePath = getPath(selectedImageUri);
-                            imageName = imagePath.substring(imagePath.lastIndexOf("/")+1);
+                            imageName = imagePath.substring(imagePath.lastIndexOf("/")+1, imagePath.length()-4);
+                            try {
+                                maskImageBitmap = BitmapFactory.decodeStream(getAssets().open(imageName + ".png"));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
                             try {
                                 loadStyleCode(context);
                             } catch (IOException e) {
@@ -822,17 +828,21 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         //Scaling and creation of Tensors
         Bitmap b = Bitmap.createScaledBitmap(imageBitmap, 256, 256, true);
         Bitmap m = Bitmap.createScaledBitmap(maskBitmap, 256, 256, false);
+        Bitmap m2 = Bitmap.createScaledBitmap(maskImageBitmap, 256, 256, false);
         Tensor inputImageTensor = TensorImageUtils.bitmapToFloat32Tensor(b, NORM_MEAN_RGB, NORM_MEAN_RGB);
         Tensor inputMaskTensor = TensorImageUtils.bitmapToFloat32Tensor(m, NORM_MEAN_RGB, NORM_MEAN_RGB);
+        Tensor inputMaskImageTensor = TensorImageUtils.bitmapToFloat32Tensor(m2, NORM_MEAN_RGB, NORM_MEAN_RGB);
         findValuesMask(maskBitmap);
 
         //Operations on mask: denormalization and one hot encoding
         Tensor denormInputMaskTensor = denormalize(inputMaskTensor, true);
         Tensor oneHotInputMaskTensor = oneHotEncoding(denormInputMaskTensor, 19, 256, 256);
 
+        Tensor denormInputMaskImageTensor = denormalize(inputMaskImageTensor, true);
+        Tensor oneHotInputMaskImageTensor = oneHotEncoding(denormInputMaskImageTensor, 19, 256, 256);
         //Tensor denormInputImageTensor = denormalize(inputImageTensor, false);
 
-        Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor);
+        Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor + ", " + oneHotInputMaskImageTensor);
 
         /*
         //Creation of Note with matrix one hot encoded
@@ -854,7 +864,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         long startTime = SystemClock.elapsedRealtime();
         //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.dictStringKeyFrom(styleCodeIVal)).toTensor();
-        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor)).toTensor();
+        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(oneHotInputMaskImageTensor)).toTensor();
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
 
@@ -885,7 +895,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         }*/
 
         imageResultBitmap = res;
-        imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
+        //imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
 
         runOnUiThread(new Runnable() {
             @Override
