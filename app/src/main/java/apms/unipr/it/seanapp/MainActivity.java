@@ -69,6 +69,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private ImageView imageView, imageView2;
     private Button buttonTransform, buttonSave;
     private ProgressBar mProgressBar;
+    private Tensor style_code;
 
     private Map <String, Map<String, Tensor>> styleCodeMap = new HashMap<>();
 
@@ -281,7 +282,8 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     }
 
     private void loadStyleCode(Context context) throws IOException {
-
+        float[] npyValues = new float[19*512];
+        long[] shape = {1, 19, 512};
         String[] dir = getAssets().list("style_codes/" + imageName);
         for (int i = 0; i < 19; i++) {
             int c;
@@ -296,6 +298,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                 try (InputStream stream = context.getAssets().open("style_codes/" + imageName + "/" + i + "/ACE.npy")) {
                     Npy npy = new Npy(stream);
                     float[] npyData = npy.floatElements();
+                    for (int v = 0; v < npyData.length; v++) {
+                        npyValues[i*npyData.length+v]=npyData[v];
+                    }
+
                     //Log.d(TAG, "\t-> " + npyData.length);
                     /*for (int j = 0; j< 20; j++) {
                         Log.d(TAG, "\t-> "+ npyData[j]);
@@ -315,6 +321,9 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                     //Log.d(TAG, "loadStyleCode: (mean) " + stream_mean.read());
                     Npy npy_mean = new Npy(stream_mean);
                     float[] npyData_mean = npy_mean.floatElements();
+                    for (int v = 0; v < npyData_mean.length; v++) {
+                        npyValues[i*npyData_mean.length+v]=npyData_mean[v];
+                    }
                     //Log.d(TAG, "\t-> " + npyData_mean.length);
                     /*for (int j = 0; j< 20; j++) {
                         Log.d(TAG, "\t-> "+ npyData[j]);
@@ -329,6 +338,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
             }
 
         }
+        style_code = Tensor.fromBlob(npyValues, shape);
     }
 
     /**
@@ -864,7 +874,9 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         long startTime = SystemClock.elapsedRealtime();
         //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.dictStringKeyFrom(styleCodeIVal)).toTensor();
-        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(oneHotInputMaskImageTensor)).toTensor();
+        Tensor outputStyleCode = mModule.runMethod("style_encoder", IValue.from(oneHotInputMaskImageTensor), IValue.from(inputImageTensor)).toTensor();
+        Log.d(TAG, "output zencoder: " + outputStyleCode);
+        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(outputStyleCode)).toTensor();
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
 
