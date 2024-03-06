@@ -17,4 +17,4 @@ Per la creazione del modello basterà eseguire il comando
 python ./modelSEAN.py
 ```
 
-A questo punto sarà creato il file *sean.ptl* tra gli assets dell'applicazione mentre gli altri modelli generati nella cartella `./generated`.
+A questo punto sarà creato il file *sean_enc.ptl* tra gli assets dell'applicazione.
