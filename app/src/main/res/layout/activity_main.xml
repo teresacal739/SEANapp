@@ -13,12 +13,6 @@
     android:gravity="center">
 
     <ImageView
-        android:id="@+id/SEANimage"
-        android:layout_width="379dp"
-        android:layout_height="466dp"
-        android:contentDescription="@string/image_view" />
-
-    <ImageView
         android:id="@+id/SEANmask"
         android:layout_marginTop="10dp"
         android:layout_width="wrap_content"
@@ -32,24 +26,42 @@
 
 
     <Button
-        android:id="@+id/buttonTransform"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="15dp"
-        android:text="@string/button_transform"
-        android:textAllCaps="false"
-        android:layout_below="@+id/SEANimage"
-        android:layout_alignParentEnd="true" />
-
-    <Button
         android:id="@+id/buttonSave"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="15dp"
-        android:text="@string/button_save"
-        android:textAllCaps="false"
         android:layout_below="@+id/buttonTransform"
-        android:layout_alignParentEnd="true" />
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="14dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/button_save"
+        android:textAllCaps="false" />
+
+    <ImageView
+        android:id="@+id/SEANimage"
+        android:layout_width="379dp"
+        android:layout_height="466dp"
+        android:contentDescription="@string/image_view" />
+
+    <TextView
+        android:id="@+id/stateStyleCode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/none_style_codes"
+        android:layout_alignParentEnd="true"
+        android:layout_below="@+id/SEANimage"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="15dp"/>
+
+    <Button
+        android:id="@+id/buttonTransform"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/stateStyleCode"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="15dp"
+        android:text="@string/button_transform"
+        android:textAllCaps="false" />
 
     <ProgressBar
         android:id="@+id/progressBar"

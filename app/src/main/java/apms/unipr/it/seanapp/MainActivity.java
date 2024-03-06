@@ -27,6 +27,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.pytorch.IValue;
@@ -35,7 +36,9 @@ import org.pytorch.Module;
 import org.pytorch.Tensor;
 import org.pytorch.torchvision.TensorImageUtils;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -59,17 +62,21 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private static final String TAG = "SEANAppTag";
     private static final float[] NORM_MEAN_RGB = {0.5f, 0.5f, 0.5f};
 
-    private Bitmap imageBitmap, maskBitmap, maskColBitmap, imageResultBitmap, maskImageBitmap;
+    private Bitmap imageBitmap, imageMBitmap;
+    private Bitmap maskBitmap, maskColBitmap, maskIBitmap;
+    private Bitmap imageResultBitmap;
     List<Float> arraylist = new ArrayList<>();
-    boolean label = false, vis = false, grayscale = false;
-    private String imagePath = null, maskPath = null, maskColPath = null;
+    boolean vis = false;
     private String imageName = null, maskName = null;
     private String default_mask = "28022";
     private Module mModule = null;
     private ImageView imageView, imageView2;
+    private TextView textView;
     private Button buttonTransform, buttonSave;
     private ProgressBar mProgressBar;
     private Tensor style_code;
+    private boolean style_loaded = false;
+    private String base_path = "/Download/SEAN/";
 
     private Map <String, Map<String, Tensor>> styleCodeMap = new HashMap<>();
 
@@ -82,30 +89,29 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         setContentView(R.layout.activity_main);
         imageView = (ImageView) findViewById(R.id.SEANimage);
         imageView2 = (ImageView) findViewById(R.id.SEANmask);
+        textView = (TextView) findViewById(R.id.stateStyleCode);
         try {
-            imageBitmap = BitmapFactory.decodeStream(getAssets().open("img/" + default_mask + ".jpg"));
             maskBitmap = BitmapFactory.decodeStream(getAssets().open("labels/" + default_mask + ".png"));
             maskColBitmap = BitmapFactory.decodeStream(getAssets().open("vis/" + default_mask + ".png"));
-            //maskImageBitmap = BitmapFactory.decodeStream(getAssets().open(default_mask + ".png"));
+            maskIBitmap = BitmapFactory.decodeStream(getAssets().open("img/" + default_mask + ".jpg"));
             maskName = default_mask;
-            imageName = default_mask;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        imageView.setImageBitmap(imageBitmap);
+
         imageView2.setImageBitmap(maskColBitmap);
         vis = true;
+
         imageView2.setOnClickListener(new View.OnClickListener() {
             //@Override
             public void onClick(View v) {
-                if (label && !vis) {
+                if (!vis) {
                     imageView2.setImageBitmap(maskColBitmap);
                     vis = true;
-                    label = false;
-                } else if (vis && !label) {
-                    imageView2.setImageBitmap(maskBitmap);
+                } else {
+                    Bitmap m = Bitmap.createScaledBitmap(maskIBitmap, 512, 512, false);
+                    imageView2.setImageBitmap(m);
                     vis = false;
-                    label = true;
                 }
             }
         });
@@ -130,13 +136,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                         Toast toast = Toast.makeText(context, text, duration);
                         toast.show();
                         return;
-                    }/* else if ((maskName.substring(0,5)).compareTo(imageName.substring(0,5)) == 0) {            //comparing name, not extension
-                        CharSequence text = "Cannot choose mask of the same image";
-                        Toast toast = Toast.makeText(context, text, duration);
-                        toast.show();
-                        return;
-                    }*/
-
+                    }
                 }
                 buttonTransform.setEnabled(false);
                 mProgressBar.setVisibility(ProgressBar.VISIBLE);
@@ -155,14 +155,12 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                 CharSequence text = "Image Saved " + im;
                 Toast toast = Toast.makeText(context, text, duration);
                 toast.show();
-                //buttonSave.setEnabled(false);
             }
         });
 
         //Load the module
         try {
-            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean2.ptl"));
-            //mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean_scripted_optimized.ptl"));
+            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean_enc.ptl"));
         } catch (IOException e) {
             Log.e(TAG, "Error reading assets", e);
             finish();
@@ -178,16 +176,15 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     @Override
     public boolean onPrepareOptionsMenu (Menu menu) {
+        if (style_loaded) {
+            menu.findItem(R.id.load_style_codes).setEnabled(false);
+        }
         if (calculating) {
             menu.findItem(R.id.sel_photo).setEnabled(false);
             //menu.findItem(R.id.sel_mask).setEnabled(false);
-            //menu.findItem(R.id.grayscale_img).setEnabled(false);
-            //menu.findItem(R.id.RGB_img).setEnabled(false);
         } else {
             menu.findItem(R.id.sel_photo).setEnabled(true);
             //menu.findItem(R.id.sel_mask).setEnabled(true);
-            //menu.findItem(R.id.grayscale_img).setEnabled(true);
-            //menu.findItem(R.id.RGB_img).setEnabled(true);
         }
         return true;
     }
@@ -202,48 +199,27 @@ public class MainActivity extends AppCompatActivity implements Runnable{
             intent.setAction(Intent.ACTION_PICK);
             gallery1ResultLauncher.launch(Intent.createChooser(intent, "Seleziona immagine"));
             return true;
-        }
-        /*else if (id == R.id.sel_mask) {
+        } else if (id == R.id.load_style_codes) {
+            try {
+                loadStyleCode(context);
+                style_loaded = true;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            int duration = Toast.LENGTH_SHORT;
+            CharSequence text = "Loaded Style Codes";
+            Toast toast = Toast.makeText(context, text, duration);
+            toast.show();
+            textView.setText(R.string.loaded_style_codes);
+            style_loaded = true;
+            Log.d(TAG, "Style Codes Loaded");
+        } else if (id == R.id.sel_mask) {
             Intent intent = new Intent();
             intent.setType("image/*");
             intent.setAction(Intent.ACTION_PICK);
             gallery2ResultLauncher.launch(Intent.createChooser(intent, "Seleziona maschera"));
             return true;
-        } else if (id == R.id.grayscale_img || id == R.id.RGB_img) {
-            item.setChecked(true);
-            Bitmap res = null;
-            if (id == R.id.grayscale_img ) {
-                if (grayscale) {
-                    int duration = Toast.LENGTH_SHORT;
-                    CharSequence text = "Already grayscale";
-                    Toast toast = Toast.makeText(context, text, duration);
-                    toast.show();
-                    Log.d(TAG, "image alerady grayscale");
-                } else {
-                    res = arrayFloatToBitmapGrayscale(arraylist,256,256);                //w 420, h 276
-                    Log.d(TAG, "Grayscale: true");
-                    grayscale = true;
-                }
-            } else if (id == R.id.RGB_img) {
-                if (grayscale) {
-                    res = arrayFloatToBitmapInt(arraylist,256,256);                //w 420, h 276
-                    Log.d(TAG, "Grayscale: false");
-                    grayscale = false;
-                } else {
-                    int duration = Toast.LENGTH_SHORT;
-                    CharSequence text = "Already RGB";
-                    Toast toast = Toast.makeText(context, text, duration);
-                    toast.show();
-                    Log.d(TAG, "image already RGB");
-                }
-            }
-            if (res != null) {
-                Log.d(TAG, "Changed imageBitmap");
-                imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
-                imageView.setImageBitmap(imageResultBitmap);
-            }
-        } */
-        else if (id == R.id.m1 || id == R.id.m2 || id == R.id.m3 || id == R.id.m4 || id == R.id.m5 || id == R.id.m6 || id == R.id.m7 || id == R.id.m8) {
+        } else if (id == R.id.m1 || id == R.id.m2 || id == R.id.m3 || id == R.id.m4 || id == R.id.m5 || id == R.id.m6 || id == R.id.m7) {
             item.setChecked(true);
             if (id == R.id.m1) {
                 default_mask = "28000";
@@ -259,32 +235,31 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                 default_mask = "28293";
             } else if (id == R.id.m7) {
                 default_mask = "28380";
-            } else if (id == R.id.m8) {
-                default_mask = "28528";
             }
             try {
-                imageBitmap = BitmapFactory.decodeStream(getAssets().open("img/" + default_mask + ".jpg"));
                 maskBitmap = BitmapFactory.decodeStream(getAssets().open("labels/" + default_mask + ".png"));
                 Log.d(TAG, "new mask: " + default_mask);
                 maskColBitmap = BitmapFactory.decodeStream(getAssets().open("vis/" + default_mask + ".png"));
+                maskIBitmap = BitmapFactory.decodeStream(getAssets().open("img/" + default_mask + ".jpg"));
                 maskName = default_mask;
-                imageName = default_mask;
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            imageView.setImageBitmap(imageBitmap);
             imageView2.setImageBitmap(maskColBitmap);
             vis = true;
-            label = false;
         }
         return super.onOptionsItemSelected(item);
 
     }
 
     private void loadStyleCode(Context context) throws IOException {
+
+        File directory = new File(Environment.getExternalStorageDirectory() + base_path + "style_codes/" + imageName + ".jpg");
+        File[] sub_dir = directory.listFiles();
+        Log.d("Files", "Size: "+ sub_dir.length + ", " + sub_dir[0]);
         float[] npyValues = new float[19*512];
         long[] shape = {1, 19, 512};
-        String[] dir = getAssets().list("style_codes/" + imageName);
+        String[] dir = directory.list();
         for (int i = 0; i < 19; i++) {
             int c;
             for (c = 0; c < dir.length; c++) {
@@ -293,47 +268,31 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                 }
             }
             if (c != dir.length) {
-            //if (dir != null && dir[count].equals(Integer.toString(i))) {
-                //Log.d(TAG, "loadStyleCode: " + i);
-                try (InputStream stream = context.getAssets().open("style_codes/" + imageName + "/" + i + "/ACE.npy")) {
-                    Npy npy = new Npy(stream);
+                try {
+                    File file = new File(Environment.getExternalStorageDirectory() + base_path + "style_codes/" + imageName + ".jpg/" + i + "/ACE.npy");
+                    InputStream  fis = null;
+                    fis = new BufferedInputStream(new FileInputStream(file));
+                    Npy npy = new Npy(fis);
                     float[] npyData = npy.floatElements();
                     for (int v = 0; v < npyData.length; v++) {
                         npyValues[i*npyData.length+v]=npyData[v];
                     }
-
-                    //Log.d(TAG, "\t-> " + npyData.length);
-                    /*for (int j = 0; j< 20; j++) {
-                        Log.d(TAG, "\t-> "+ npyData[j]);
-                    }*/
-                    //Dictionary<String, Tensor> d = new Hashtable<>();
                     Map<String, Tensor> m = new HashMap<>();
                     m.put("ACE", Tensor.fromBlob(npyData, new long[]{1, npyData.length}));
-                    //d.put("ACE", Tensor.fromBlob(npyData, new long[]{1, npyData.length}));
                     styleCodeMap.put(Integer.toString(i), m);
-                    //styleCode.put(Integer.toString(i), d);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-                //count++;
             } else {
-                String[] dir_mean = getAssets().list("mean");
-                //Log.d(TAG, "loadStyleCode: (mean) " + i);
                 try (InputStream stream_mean = context.getAssets().open("mean/" + i + "/ACE.npy")) {
-                    //Log.d(TAG, "loadStyleCode: (mean) " + stream_mean.read());
                     Npy npy_mean = new Npy(stream_mean);
                     float[] npyData_mean = npy_mean.floatElements();
                     for (int v = 0; v < npyData_mean.length; v++) {
                         npyValues[i*npyData_mean.length+v]=npyData_mean[v];
                     }
-                    //Log.d(TAG, "\t-> " + npyData_mean.length);
-                    /*for (int j = 0; j< 20; j++) {
-                        Log.d(TAG, "\t-> "+ npyData[j]);
-                    }*/
-                    //Dictionary<String, Tensor> d = new Hashtable<>();
                     Map<String, Tensor> m = new HashMap<>();
                     m.put("ACE", Tensor.fromBlob(npyData_mean, new long[]{1, npyData_mean.length}));
-                    //d.put("ACE", Tensor.fromBlob(npyData_mean, new long[]{1, npyData_mean.length}));
                     styleCodeMap.put(Integer.toString(i), m);
-                    //styleCode.put(Integer.toString(i), d);
                 }
             }
 
@@ -363,23 +322,30 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                                 throw new RuntimeException(e);
                             }
                             imageView.setImageBitmap(imageBitmap);
-                            imagePath = getPath(selectedImageUri);
+                            String imagePath = getPath(selectedImageUri);
                             imageName = imagePath.substring(imagePath.lastIndexOf("/")+1, imagePath.length()-4);
                             try {
-                                maskImageBitmap = BitmapFactory.decodeStream(getAssets().open(imageName + ".png"));
+                                File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
+                                        + base_path + "labels/" + imageName + ".png");
+                                InputStream  fis = null;
+                                fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                imageMBitmap = BitmapFactory.decodeStream(fis);
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
-                            try {
+                            //imageView2.setImageBitmap(maskImageBitmap);
+                            /*try {
                                 loadStyleCode(context);
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
-                            }
+                            }*/
                             buttonSave.setEnabled(false);
                             int duration = Toast.LENGTH_SHORT;
                             CharSequence text = "Selected image " + imageName;
                             Toast toast = Toast.makeText(context, text, duration);
                             toast.show();
+                            textView.setText(R.string.none_style_codes);
+                            style_loaded = false;
                             Log.d(TAG, "image " + imageName + ": " + imagePath);
                         }
                     }
@@ -400,43 +366,71 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                         Intent data = result.getData();
                         if (data != null && data.getData() != null) {
                             Uri selectedImageUri = data.getData();
-
+                            String maskPath = getPath(selectedImageUri);
                             Log.d(TAG, "mask " + selectedImageUri.toString());
+                            maskName = maskPath.substring(maskPath.lastIndexOf("/")+1, maskPath.length()-4);
                             if (isLabel(selectedImageUri)) {
-                                maskPath = getPath(selectedImageUri);
-                                maskName = maskPath.substring(maskPath.lastIndexOf("/")+1);
-                                //maskColPath = getPath(Uri.parse(new File(changeMaskPath(selectedImageUri, false)).toString()));
-                                label = true;
                                 try {
                                     maskBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
+                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
+                                            + base_path + "vis/" + imageName + ".png");
+                                    InputStream  fis = null;
+                                    fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                    maskColBitmap = BitmapFactory.decodeStream(fis);
+                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
+                                            + base_path + "images/" + imageName + ".jpg");
+                                    InputStream  fis2 = null;
+                                    fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                    maskIBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
-                                    Log.e(TAG, "Cannot create Bitmap of mask " + maskPath);
+                                    Log.e(TAG, "Cannot create Bitmap of mask (label) " + maskPath);
                                     throw new RuntimeException(e);
                                 }
-                                imageView2.setImageURI(selectedImageUri);
-                                Log.d(TAG, "mask " + maskName + ": " + maskPath);
                             } else if (isVis(selectedImageUri)){
-                                maskColPath = getPath(selectedImageUri);
-                                maskName = maskColPath.substring(maskColPath.lastIndexOf("/")+1);
-                                //maskPath = getPath(Uri.parse(new File(changeMaskPath(selectedImageUri, true)).toString()));
-                                vis = true;
                                 try {
-                                    maskBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
+                                    maskColBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
+                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
+                                            + base_path + "labels/" + imageName + ".png");
+                                    InputStream  fis = null;
+                                    fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                    maskBitmap = BitmapFactory.decodeStream(fis);
+                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
+                                            + base_path + "images/" + imageName + ".jpg");
+                                    InputStream  fis2 = null;
+                                    fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                    maskIBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
-                                    Log.e(TAG, "Cannot create Bitmap of mask colored " + maskColPath);
+                                    Log.e(TAG, "Cannot create Bitmap of mask (vis) " + maskPath);
                                     throw new RuntimeException(e);
                                 }
-                                imageView2.setImageURI(selectedImageUri);
-                                Log.d(TAG, "mask " + maskName + ": " + maskColPath);
+                            } else if (isImg(selectedImageUri)) {
+                                try {
+                                    maskIBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
+                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
+                                            + base_path + "vis/" + imageName + ".png");
+                                    InputStream  fis = null;
+                                    fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                    maskColBitmap = BitmapFactory.decodeStream(fis);
+                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
+                                            + base_path + "labels/" + imageName + ".png");
+                                    InputStream  fis2 = null;
+                                    fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                    maskBitmap = BitmapFactory.decodeStream(fis2);
+                                } catch (IOException e) {
+                                    Log.e(TAG, "Cannot create Bitmap of mask (image) " + maskPath);
+                                    throw new RuntimeException(e);
+                                }
                             } else {
                                 int duration = Toast.LENGTH_SHORT;
-                                CharSequence text = "No right mask selected";
+                                CharSequence text = "No right mask selected: " + maskPath;
                                 Toast toast = Toast.makeText(context, text, duration);
                                 toast.show();
                                 return;
                             }
-
-                            //imageView.setClickable(true);
+                            vis = true;
+                            imageView2.setImageBitmap(maskColBitmap);
+                            Log.d(TAG, "mask " + maskName + ": " + maskPath);
+                            imageView2.setClickable(true);
                             buttonSave.setEnabled(false);
                             int duration = Toast.LENGTH_SHORT;
                             CharSequence text = "Selected mask " + maskName;
@@ -459,6 +453,14 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private boolean isVis(Uri uri) {
         if (uri.toString().contains("vis")) {
             Log.d(TAG, "contains 'vis': " + uri.toString());
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isImg(Uri uri) {
+        if (uri.toString().contains("images")) {
+            Log.d(TAG, "contains 'images': " + uri.toString());
             return true;
         }
         return false;
@@ -838,21 +840,20 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         //Scaling and creation of Tensors
         Bitmap b = Bitmap.createScaledBitmap(imageBitmap, 256, 256, true);
         Bitmap m = Bitmap.createScaledBitmap(maskBitmap, 256, 256, false);
-        Bitmap m2 = Bitmap.createScaledBitmap(maskImageBitmap, 256, 256, false);
+        //Bitmap m2 = Bitmap.createScaledBitmap(imageMBitmap, 256, 256, false);
         Tensor inputImageTensor = TensorImageUtils.bitmapToFloat32Tensor(b, NORM_MEAN_RGB, NORM_MEAN_RGB);
         Tensor inputMaskTensor = TensorImageUtils.bitmapToFloat32Tensor(m, NORM_MEAN_RGB, NORM_MEAN_RGB);
-        Tensor inputMaskImageTensor = TensorImageUtils.bitmapToFloat32Tensor(m2, NORM_MEAN_RGB, NORM_MEAN_RGB);
+        //Tensor inputMaskImageTensor = TensorImageUtils.bitmapToFloat32Tensor(m2, NORM_MEAN_RGB, NORM_MEAN_RGB);
         findValuesMask(maskBitmap);
 
         //Operations on mask: denormalization and one hot encoding
         Tensor denormInputMaskTensor = denormalize(inputMaskTensor, true);
         Tensor oneHotInputMaskTensor = oneHotEncoding(denormInputMaskTensor, 19, 256, 256);
 
-        Tensor denormInputMaskImageTensor = denormalize(inputMaskImageTensor, true);
-        Tensor oneHotInputMaskImageTensor = oneHotEncoding(denormInputMaskImageTensor, 19, 256, 256);
-        //Tensor denormInputImageTensor = denormalize(inputImageTensor, false);
+        //Tensor denormInputMaskImageTensor = denormalize(inputMaskImageTensor, true);
+        //Tensor oneHotInputMaskImageTensor = oneHotEncoding(denormInputMaskImageTensor, 19, 256, 256);
 
-        Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor + ", " + oneHotInputMaskImageTensor);
+        Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor);
 
         /*
         //Creation of Note with matrix one hot encoded
@@ -860,23 +861,20 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         generateNoteOnSD(note);
         */
 
-        /*
-        //Import of style_codes
-        Map<String, IValue> styleCodeIVal = new HashMap<>();
-        for (String k : styleCodeMap.keySet()) {
-            Map<String, IValue> style_layer = new HashMap<>();
-            for (String k2: styleCodeMap.get(k).keySet()) {
-                style_layer.put(k2, IValue.from(styleCodeMap.get(k).get(k2)));
-            }
-            styleCodeIVal.put(k, IValue.dictStringKeyFrom(style_layer));
-        }
-        */
-
+        //float[] dummy_style = new float[19*512];
+        //long[] shape_dummy = {1, 19, 512};
         long startTime = SystemClock.elapsedRealtime();
-        //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.dictStringKeyFrom(styleCodeIVal)).toTensor();
-        Tensor outputStyleCode = mModule.runMethod("style_encoder", IValue.from(oneHotInputMaskImageTensor), IValue.from(inputImageTensor)).toTensor();
-        Log.d(TAG, "output zencoder: " + outputStyleCode);
-        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(outputStyleCode)).toTensor();
+
+        //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskImageTensor), IValue.from(inputImageTensor), IValue.from(Tensor.fromBlob(dummy_style, shape_dummy))).toTensor();
+        //Log.d(TAG, "output zencoder: " + outputTensor);
+        if (!style_loaded) {
+            int duration = Toast.LENGTH_SHORT;
+            CharSequence text = "No style codes loaded";
+            Toast toast = Toast.makeText(getApplicationContext(), text, duration);
+            toast.show();
+            return;
+        }
+        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(style_code)).toTensor();
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
 
@@ -907,11 +905,12 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         }*/
 
         imageResultBitmap = res;
-        //imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
+        imageResultBitmap = Bitmap.createScaledBitmap(res, 512, 512, true);
 
         runOnUiThread(new Runnable() {
             @Override
-            public void run() {
+            public void run()
+            {
                 imageView.setImageBitmap(imageResultBitmap);
                 buttonTransform.setEnabled(true);
                 buttonTransform.setText(getString(R.string.button_transform));
