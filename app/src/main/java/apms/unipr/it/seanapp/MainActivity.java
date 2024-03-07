@@ -102,17 +102,15 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         imageView2.setImageBitmap(maskColBitmap);
         vis = true;
 
-        imageView2.setOnClickListener(new View.OnClickListener() {
-            //@Override
-            public void onClick(View v) {
-                if (!vis) {
-                    imageView2.setImageBitmap(maskColBitmap);
-                    vis = true;
-                } else {
-                    Bitmap m = Bitmap.createScaledBitmap(maskIBitmap, 512, 512, false);
-                    imageView2.setImageBitmap(m);
-                    vis = false;
-                }
+        //@Override
+        imageView2.setOnClickListener(v -> {
+            if (!vis) {
+                imageView2.setImageBitmap(maskColBitmap);
+                vis = true;
+            } else {
+                Bitmap m = Bitmap.createScaledBitmap(maskIBitmap, 512, 512, false);
+                imageView2.setImageBitmap(m);
+                vis = false;
             }
         });
 
@@ -121,41 +119,37 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         buttonSave.setEnabled(false);
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
-        buttonTransform.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Context context = getApplicationContext();
-                int duration = Toast.LENGTH_SHORT;
-                if (imageName == null) {
-                    CharSequence text = "Choose an image";
+        buttonTransform.setOnClickListener(v -> {
+            Context context = getApplicationContext();
+            int duration = Toast.LENGTH_SHORT;
+            if (imageName == null) {
+                CharSequence text = "Choose an image";
+                Toast toast = Toast.makeText(context, text, duration);
+                toast.show();
+                return;
+            } else {
+                if (maskName == null) {
+                    CharSequence text = "Choose a mask";
                     Toast toast = Toast.makeText(context, text, duration);
                     toast.show();
                     return;
-                } else {
-                    if (maskName == null) {
-                        CharSequence text = "Choose a mask";
-                        Toast toast = Toast.makeText(context, text, duration);
-                        toast.show();
-                        return;
-                    }
                 }
-                buttonTransform.setEnabled(false);
-                mProgressBar.setVisibility(ProgressBar.VISIBLE);
-                buttonTransform.setText(getString(R.string.run_model));
-                calculating = true;
-                Thread thread = new Thread(MainActivity.this);
-                thread.start();
             }
+            buttonTransform.setEnabled(false);
+            mProgressBar.setVisibility(ProgressBar.VISIBLE);
+            buttonTransform.setText(getString(R.string.run_model));
+            calculating = true;
+            Thread thread = new Thread(MainActivity.this);
+            thread.start();
         });
 
-        buttonSave.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                String im = saveImage(imageResultBitmap);
-                Context context = getApplicationContext();
-                int duration = Toast.LENGTH_SHORT;
-                CharSequence text = "Image Saved " + im;
-                Toast toast = Toast.makeText(context, text, duration);
-                toast.show();
-            }
+        buttonSave.setOnClickListener(v -> {
+            String im = saveImage(imageResultBitmap);
+            Context context = getApplicationContext();
+            int duration = Toast.LENGTH_SHORT;
+            CharSequence text = "Image Saved " + im;
+            Toast toast = Toast.makeText(context, text, duration);
+            toast.show();
         });
 
         //Load the module
@@ -270,8 +264,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
             if (c != dir.length) {
                 try {
                     File file = new File(Environment.getExternalStorageDirectory() + base_path + "style_codes/" + imageName + ".jpg/" + i + "/ACE.npy");
-                    InputStream  fis = null;
-                    fis = new BufferedInputStream(new FileInputStream(file));
+                    InputStream  fis = new BufferedInputStream(new FileInputStream(file));
                     Npy npy = new Npy(fis);
                     float[] npyData = npy.floatElements();
                     for (int v = 0; v < npyData.length; v++) {
@@ -321,19 +314,18 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                                 Log.e(TAG, "Cannot create Bitmap of image");
                                 throw new RuntimeException(e);
                             }
-                            imageView.setImageBitmap(imageBitmap);
+
                             String imagePath = getPath(selectedImageUri);
                             imageName = imagePath.substring(imagePath.lastIndexOf("/")+1, imagePath.length()-4);
                             try {
                                 File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
                                         + base_path + "labels/" + imageName + ".png");
-                                InputStream  fis = null;
-                                fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                 imageMBitmap = BitmapFactory.decodeStream(fis);
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
-                            //imageView2.setImageBitmap(maskImageBitmap);
+                            imageView.setImageBitmap(imageBitmap);
                             /*try {
                                 loadStyleCode(context);
                             } catch (IOException e) {
@@ -374,13 +366,11 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                                     maskBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
                                     File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
                                             + base_path + "vis/" + imageName + ".png");
-                                    InputStream  fis = null;
-                                    fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                    InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                     maskColBitmap = BitmapFactory.decodeStream(fis);
                                     File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
                                             + base_path + "images/" + imageName + ".jpg");
-                                    InputStream  fis2 = null;
-                                    fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                    InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
                                     maskIBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
                                     Log.e(TAG, "Cannot create Bitmap of mask (label) " + maskPath);
@@ -391,13 +381,11 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                                     maskColBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
                                     File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
                                             + base_path + "labels/" + imageName + ".png");
-                                    InputStream  fis = null;
-                                    fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                    InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                     maskBitmap = BitmapFactory.decodeStream(fis);
                                     File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
                                             + base_path + "images/" + imageName + ".jpg");
-                                    InputStream  fis2 = null;
-                                    fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                    InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
                                     maskIBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
                                     Log.e(TAG, "Cannot create Bitmap of mask (vis) " + maskPath);
@@ -408,13 +396,11 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                                     maskIBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
                                     File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
                                             + base_path + "vis/" + imageName + ".png");
-                                    InputStream  fis = null;
-                                    fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
+                                    InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                     maskColBitmap = BitmapFactory.decodeStream(fis);
                                     File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
                                             + base_path + "labels/" + imageName + ".png");
-                                    InputStream  fis2 = null;
-                                    fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                    InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
                                     maskBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
                                     Log.e(TAG, "Cannot create Bitmap of mask (image) " + maskPath);
@@ -444,7 +430,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     private boolean isLabel(Uri uri) {
         if (uri.toString().contains("labels")) {
-            Log.d(TAG, "contains 'labels': " + uri.toString());
+            Log.d(TAG, "contains 'labels': " + uri);
             return true;
         }
         return false;
@@ -452,7 +438,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     private boolean isVis(Uri uri) {
         if (uri.toString().contains("vis")) {
-            Log.d(TAG, "contains 'vis': " + uri.toString());
+            Log.d(TAG, "contains 'vis': " + uri);
             return true;
         }
         return false;
@@ -460,19 +446,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     private boolean isImg(Uri uri) {
         if (uri.toString().contains("images")) {
-            Log.d(TAG, "contains 'images': " + uri.toString());
+            Log.d(TAG, "contains 'images': " + uri);
             return true;
         }
         return false;
-    }
-
-    private String changeMaskPath(Uri uri, boolean isColored) {
-        if (isColored && uri.toString().contains("vis")) {    //from vis to labels
-            return uri.toString().replaceAll("vis", "labels");
-        } else if (!isColored && uri.toString().contains("labels")){            //from labels to vis
-            return uri.toString().replaceAll("labels", "vis");
-        }
-        return null;
     }
 
     private String getPath(Uri uri) {
@@ -566,12 +543,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
      * @return Tensor denormalized with same shape of input
      */
     public static Tensor denormalize(Tensor tens, boolean checkVal) {
-        // values tens [-1,+1]
-        // val = ((val + 1)/2)*255.0
         float[] tensFloat = tens.getDataAsFloatArray();
         float[] new_tens = new float[tensFloat.length];
         long[] shape = tens.shape();
-        Log.d(TAG, "denormalize " + tensFloat.length);
+        //Log.d(TAG, "denormalize " + tensFloat.length);
         List<Float> arrayvals = new ArrayList<>();
         for (int i = 0; i < tensFloat.length; i++) {
             new_tens[i] = ((tensFloat[i]+1)/2)*255;
@@ -584,9 +559,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
             shapeS = shapeS.concat(shape[j] + ", ");
         }
         shapeS = shapeS.concat("]");
-        if (checkVal) {
-            Log.d(TAG, "denormalize: " + shapeS + ", " + arrayvals.toString());
-        }
+        Log.d(TAG, "denormalize: len " + tensFloat.length + ", shape " + shapeS);
+        /*if (checkVal) {
+            Log.d(TAG, "denormalize: " + shapeS + ", " + arrayvals);
+        }*/
         return Tensor.fromBlob(new_tens, shape);
     }
 
@@ -840,20 +816,23 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         //Scaling and creation of Tensors
         Bitmap b = Bitmap.createScaledBitmap(imageBitmap, 256, 256, true);
         Bitmap m = Bitmap.createScaledBitmap(maskBitmap, 256, 256, false);
-        //Bitmap m2 = Bitmap.createScaledBitmap(imageMBitmap, 256, 256, false);
+        Bitmap m2 = Bitmap.createScaledBitmap(imageMBitmap, 256, 256, false);
+
         Tensor inputImageTensor = TensorImageUtils.bitmapToFloat32Tensor(b, NORM_MEAN_RGB, NORM_MEAN_RGB);
         Tensor inputMaskTensor = TensorImageUtils.bitmapToFloat32Tensor(m, NORM_MEAN_RGB, NORM_MEAN_RGB);
-        //Tensor inputMaskImageTensor = TensorImageUtils.bitmapToFloat32Tensor(m2, NORM_MEAN_RGB, NORM_MEAN_RGB);
+        Tensor inputImageMTensor = TensorImageUtils.bitmapToFloat32Tensor(m2, NORM_MEAN_RGB, NORM_MEAN_RGB);
+
         findValuesMask(maskBitmap);
+        findValuesMask(imageMBitmap);
 
         //Operations on mask: denormalization and one hot encoding
         Tensor denormInputMaskTensor = denormalize(inputMaskTensor, true);
         Tensor oneHotInputMaskTensor = oneHotEncoding(denormInputMaskTensor, 19, 256, 256);
+        Tensor denormInputImageMTensor = denormalize(inputImageMTensor, true);
+        Tensor oneHotInputImageMTensor = oneHotEncoding(denormInputImageMTensor, 19, 256, 256);
 
-        //Tensor denormInputMaskImageTensor = denormalize(inputMaskImageTensor, true);
-        //Tensor oneHotInputMaskImageTensor = oneHotEncoding(denormInputMaskImageTensor, 19, 256, 256);
 
-        Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor);
+        Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor + ", " + oneHotInputImageMTensor);
 
         /*
         //Creation of Note with matrix one hot encoded
@@ -861,20 +840,13 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         generateNoteOnSD(note);
         */
 
-        //float[] dummy_style = new float[19*512];
-        //long[] shape_dummy = {1, 19, 512};
+        float[] dummy_style = new float[19*512];
+        long[] shape_dummy = {1, 19, 512};
         long startTime = SystemClock.elapsedRealtime();
 
-        //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskImageTensor), IValue.from(inputImageTensor), IValue.from(Tensor.fromBlob(dummy_style, shape_dummy))).toTensor();
-        //Log.d(TAG, "output zencoder: " + outputTensor);
-        if (!style_loaded) {
-            int duration = Toast.LENGTH_SHORT;
-            CharSequence text = "No style codes loaded";
-            Toast toast = Toast.makeText(getApplicationContext(), text, duration);
-            toast.show();
-            return;
-        }
-        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(style_code)).toTensor();
+        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(oneHotInputImageMTensor)).toTensor();
+        //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(style_code)).toTensor();
+
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
 
