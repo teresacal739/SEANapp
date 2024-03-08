@@ -27,8 +27,6 @@ A questo punto sarà creato il file *sean.ptl* tra gli assets dell'applicazione.
 
 ## Funzionamento
 
-![image](./screenshot/img1.jpg) ![image](./screenshot/img1.jpg) 
-
 Una volta avviata l'applicazione verrà mostrata una schermata con una maschera di default (modificabile selezionando la voce *Mask Default* nel menu in alto, oppure selezionando una nuova maschera tra quelle presenti nella cartella `./Downloads/SEAN/`, mediante la voce *Mask* nel menu in alto).
 Selezionando un'altra maschera verrà mostrata nella schermata in basso a sinistra.
 
