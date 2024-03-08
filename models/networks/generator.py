@@ -73,40 +73,47 @@ class SPADEGenerator(BaseNetwork):
         return sw, sh
     
     
-    def forward(self, input, rgb_img, style_codes, obj_dic=None):
+    def forward(self, input, rgb_img, rgb_mask, obj_dic=None):
         seg = input
+        seg2 = rgb_mask
+                
+        x = F.interpolate(seg, size=(self.sh, self.sw))
+        x = self.fc(x)
+        
+        #print(seg.shape)
+        #print(rgb_mask.shape)
+        
+        style_codes = self.Zencoder(input=rgb_img, segmap=seg2)
+        
+        
+        #print(style_codes.shape)
+        #print("---------------")
+        x = self.head_0(x, seg, style_codes, obj_dic=obj_dic)
 
-        if style_codes.sum().item() == 0:
-            x = self.Zencoder(input=rgb_img, segmap=seg)
-        else:
-            x = F.interpolate(seg, size=(self.sh, self.sw))
-            x = self.fc(x)
-            x = self.head_0(x, seg, style_codes, obj_dic=obj_dic)
+        x = self.up(x)
+        x = self.G_middle_0(x, seg, style_codes, obj_dic=obj_dic)
 
+        if self.opt.num_upsampling_layers == 'more' or \
+           self.opt.num_upsampling_layers == 'most':
             x = self.up(x)
-            x = self.G_middle_0(x, seg, style_codes, obj_dic=obj_dic)
 
-            if self.opt.num_upsampling_layers == 'more' or \
-               self.opt.num_upsampling_layers == 'most':
-                x = self.up(x)
+        x = self.G_middle_1(x, seg, style_codes,  obj_dic=obj_dic)
 
-            x = self.G_middle_1(x, seg, style_codes,  obj_dic=obj_dic)
+        x = self.up(x)
+        x = self.up_0(x, seg, style_codes, obj_dic=obj_dic)
+        x = self.up(x)
+        x = self.up_1(x, seg, style_codes, obj_dic=obj_dic)
+        x = self.up(x)
+        x = self.up_2(x, seg, style_codes, obj_dic=obj_dic)
+        x = self.up(x)
+        x = self.up_3(x, seg, style_codes,  obj_dic=obj_dic)
 
-            x = self.up(x)
-            x = self.up_0(x, seg, style_codes, obj_dic=obj_dic)
-            x = self.up(x)
-            x = self.up_1(x, seg, style_codes, obj_dic=obj_dic)
-            x = self.up(x)
-            x = self.up_2(x, seg, style_codes, obj_dic=obj_dic)
-            x = self.up(x)
-            x = self.up_3(x, seg, style_codes,  obj_dic=obj_dic)
+        # if self.opt.num_upsampling_layers == 'most':
+        #     x = self.up(x)
+        #     x= self.up_4(x, seg, style_codes,  obj_dic=obj_dic)
 
-            # if self.opt.num_upsampling_layers == 'most':
-            #     x = self.up(x)
-            #     x= self.up_4(x, seg, style_codes,  obj_dic=obj_dic)
-
-            x = self.conv_img(F.leaky_relu(x, 2e-1))
-            x = F.tanh(x)
+        x = self.conv_img(F.leaky_relu(x, 2e-1))
+        x = F.tanh(x)
         return x
 
 

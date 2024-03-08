@@ -62,11 +62,11 @@ public class MainActivity extends AppCompatActivity implements Runnable{
     private static final String TAG = "SEANAppTag";
     private static final float[] NORM_MEAN_RGB = {0.5f, 0.5f, 0.5f};
 
-    private Bitmap imageBitmap, imageMBitmap;
+    private Bitmap imageBitmap, imageMBitmap, imageMColBitmap;
     private Bitmap maskBitmap, maskColBitmap, maskIBitmap;
     private Bitmap imageResultBitmap;
-    List<Float> arraylist = new ArrayList<>();
-    boolean vis = false;
+    private List<Float> arraylist = new ArrayList<>();
+    private boolean vis = false;
     private String imageName = null, maskName = null;
     private String default_mask = "28022";
     private Module mModule = null;
@@ -102,7 +102,6 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         imageView2.setImageBitmap(maskColBitmap);
         vis = true;
 
-        //@Override
         imageView2.setOnClickListener(v -> {
             if (!vis) {
                 imageView2.setImageBitmap(maskColBitmap);
@@ -154,7 +153,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         //Load the module
         try {
-            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean_enc.ptl"));
+            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "sean.ptl"));
         } catch (IOException e) {
             Log.e(TAG, "Error reading assets", e);
             finish();
@@ -170,15 +169,15 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     @Override
     public boolean onPrepareOptionsMenu (Menu menu) {
-        if (style_loaded) {
+        /*if (style_loaded) {
             menu.findItem(R.id.load_style_codes).setEnabled(false);
-        }
+        }*/
         if (calculating) {
             menu.findItem(R.id.sel_photo).setEnabled(false);
-            //menu.findItem(R.id.sel_mask).setEnabled(false);
+            menu.findItem(R.id.sel_mask).setEnabled(false);
         } else {
             menu.findItem(R.id.sel_photo).setEnabled(true);
-            //menu.findItem(R.id.sel_mask).setEnabled(true);
+            menu.findItem(R.id.sel_mask).setEnabled(true);
         }
         return true;
     }
@@ -318,10 +317,12 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                             String imagePath = getPath(selectedImageUri);
                             imageName = imagePath.substring(imagePath.lastIndexOf("/")+1, imagePath.length()-4);
                             try {
-                                File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
-                                        + base_path + "labels/" + imageName + ".png");
+                                File mediaStorageDir = new File(Environment.getExternalStorageDirectory() + base_path + "labels/" + imageName + ".png");
                                 InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                 imageMBitmap = BitmapFactory.decodeStream(fis);
+                                File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory() + base_path + "vis/" + imageName + ".png");
+                                InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
+                                imageMColBitmap = BitmapFactory.decodeStream(fis2);
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
@@ -364,12 +365,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                             if (isLabel(selectedImageUri)) {
                                 try {
                                     maskBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
-                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
-                                            + base_path + "vis/" + imageName + ".png");
+                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory() + base_path + "vis/" + maskName + ".png");
                                     InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                     maskColBitmap = BitmapFactory.decodeStream(fis);
-                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
-                                            + base_path + "images/" + imageName + ".jpg");
+                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory() + base_path + "images/" + maskName + ".jpg");
                                     InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
                                     maskIBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
@@ -379,12 +378,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                             } else if (isVis(selectedImageUri)){
                                 try {
                                     maskColBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
-                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
-                                            + base_path + "labels/" + imageName + ".png");
+                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory() + base_path + "labels/" + maskName + ".png");
                                     InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                     maskBitmap = BitmapFactory.decodeStream(fis);
-                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
-                                            + base_path + "images/" + imageName + ".jpg");
+                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory() + base_path + "images/" + maskName + ".jpg");
                                     InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
                                     maskIBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
@@ -394,12 +391,10 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                             } else if (isImg(selectedImageUri)) {
                                 try {
                                     maskIBitmap = MediaStore.Images.Media.getBitmap(context.getContentResolver(), selectedImageUri);
-                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
-                                            + base_path + "vis/" + imageName + ".png");
+                                    File mediaStorageDir = new File(Environment.getExternalStorageDirectory() + base_path + "vis/" + maskName + ".png");
                                     InputStream  fis = new BufferedInputStream(new FileInputStream(mediaStorageDir));
                                     maskColBitmap = BitmapFactory.decodeStream(fis);
-                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory()
-                                            + base_path + "labels/" + imageName + ".png");
+                                    File mediaStorageDir2 = new File(Environment.getExternalStorageDirectory() + base_path + "labels/" + maskName + ".png");
                                     InputStream  fis2 = new BufferedInputStream(new FileInputStream(mediaStorageDir2));
                                     maskBitmap = BitmapFactory.decodeStream(fis2);
                                 } catch (IOException e) {
@@ -660,15 +655,13 @@ public class MainActivity extends AppCompatActivity implements Runnable{
      * Save body in note
      * @param sBody String to save
      */
-    public void generateNoteOnSD(String sBody) {
+    public void generateNoteOnSD(String sBody, String name) {
         try {
             File root = new File(Environment.getExternalStorageDirectory() + "/Download");
             if (!root.exists()) {
                 root.mkdirs();
             }
-            String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmm").format(new Date());
-            String sFileName="_"+ timeStamp +".txt";
-            File gpxfile = new File(root, sFileName);
+            File gpxfile = new File(root, name);
             FileWriter writer = new FileWriter(gpxfile);
             writer.append(sBody);
             writer.flush();
@@ -718,6 +711,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
                 col_B = Math.round(floatArray.get(i+2*width*height));
             }
             pixels[i] = Color.argb(255, col_R, col_G, col_B);
+            //Log.d(TAG, "arrayFloatToBitmapInt: " + Color.red(pixels[i]) + ", " + Color.green(pixels[i]) + ", " + Color.blue(pixels[i]));
         }
         bmp.setPixels(pixels, 0, width, 0, 0, width, height); ;
         return bmp ;
@@ -834,18 +828,28 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
         Log.d(TAG, "inputTensors: " + inputImageTensor + ", " + oneHotInputMaskTensor + ", " + oneHotInputImageMTensor);
 
-        /*
+/*
         //Creation of Note with matrix one hot encoded
+        String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+        String sFileName="MASK_"+ timeStamp +".txt";
         String note = createMatrixMask(denormInputMaskTensor, oneHotInputMaskTensor);
-        generateNoteOnSD(note);
-        */
+        generateNoteOnSD(note, sFileName);
+
+        String timeStampM = new SimpleDateFormat("ddMMyyyy_HHmmss").format(new Date());
+        String sFileNameM="RGB_MASK_"+ timeStampM +".txt";
+        String noteM = createMatrixMask(denormInputImageMTensor, oneHotInputImageMTensor);
+        generateNoteOnSD(noteM, sFileNameM);
+*/
 
         float[] dummy_style = new float[19*512];
         long[] shape_dummy = {1, 19, 512};
         long startTime = SystemClock.elapsedRealtime();
-
         Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(oneHotInputImageMTensor)).toTensor();
-        //Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(style_code)).toTensor();
+
+        /*if (!style_loaded) {
+        } else {
+            outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(style_code)).toTensor();
+        }*/
 
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
