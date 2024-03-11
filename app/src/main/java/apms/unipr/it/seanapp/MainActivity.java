@@ -6,19 +6,25 @@ import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import android.Manifest;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.SystemClock;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -169,9 +175,9 @@ public class MainActivity extends AppCompatActivity implements Runnable{
 
     @Override
     public boolean onPrepareOptionsMenu (Menu menu) {
-        /*if (style_loaded) {
+        if (style_loaded) {
             menu.findItem(R.id.load_style_codes).setEnabled(false);
-        }*/
+        }
         if (calculating) {
             menu.findItem(R.id.sel_photo).setEnabled(false);
             menu.findItem(R.id.sel_mask).setEnabled(false);
@@ -182,15 +188,56 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         return true;
     }
 
+    public boolean checkPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        } else {
+            int write = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            int read = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+            return read == PackageManager.PERMISSION_GRANTED && write == PackageManager.PERMISSION_GRANTED;
+
+        }
+    }
+
+    ActivityResultLauncher requestPermissionLauncher  = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), isGranted -> {
+                Context context = getApplicationContext();
+                if (isGranted) {
+                    int duration = Toast.LENGTH_SHORT;
+                    CharSequence text = "Permission granted";
+                    Toast toast = Toast.makeText(context, text, duration);
+                    toast.show();
+                } else {
+                    int duration = Toast.LENGTH_SHORT;
+                    CharSequence text = "Permission not granted";
+                    Toast toast = Toast.makeText(context, text, duration);
+                    toast.show();
+                }
+            });
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         Context context = getApplicationContext();
         if (id == R.id.sel_photo) {
-            Intent intent = new Intent();
-            intent.setType("image/*");
-            intent.setAction(Intent.ACTION_PICK);
-            gallery1ResultLauncher.launch(Intent.createChooser(intent, "Seleziona immagine"));
+
+            if (!checkPermission()) {
+                int duration = Toast.LENGTH_SHORT;
+                CharSequence text = "Grant permissions first";
+                Toast toast = Toast.makeText(context, text, duration);
+                toast.show();
+                /*Intent intent = new Intent();
+                intent.setAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                Uri uri = Uri.fromParts("package", this.getPackageName(), null);
+                Log.d(TAG, uri.toString());
+                intent.setData(uri);
+                requestPermissionLauncher.launch(intent);*/
+            } else {
+                Intent intent = new Intent();
+                intent.setType("image/*");
+                intent.setAction(Intent.ACTION_PICK);
+                gallery1ResultLauncher.launch(Intent.createChooser(intent, "Seleziona immagine"));
+            }
             return true;
         } else if (id == R.id.load_style_codes) {
             try {
@@ -204,13 +251,20 @@ public class MainActivity extends AppCompatActivity implements Runnable{
             Toast toast = Toast.makeText(context, text, duration);
             toast.show();
             textView.setText(R.string.loaded_style_codes);
-            style_loaded = true;
             Log.d(TAG, "Style Codes Loaded");
         } else if (id == R.id.sel_mask) {
-            Intent intent = new Intent();
-            intent.setType("image/*");
-            intent.setAction(Intent.ACTION_PICK);
-            gallery2ResultLauncher.launch(Intent.createChooser(intent, "Seleziona maschera"));
+            if (!checkPermission()) {
+                int duration = Toast.LENGTH_SHORT;
+                CharSequence text = "Grant permissions first";
+                Toast toast = Toast.makeText(context, text, duration);
+                toast.show();
+            } else {
+                Intent intent = new Intent();
+                intent.setType("image/*");
+                intent.setAction(Intent.ACTION_PICK);
+                gallery2ResultLauncher.launch(Intent.createChooser(intent, "Seleziona maschera"));
+            }
+
             return true;
         } else if (id == R.id.m1 || id == R.id.m2 || id == R.id.m3 || id == R.id.m4 || id == R.id.m5 || id == R.id.m6 || id == R.id.m7) {
             item.setChecked(true);
@@ -291,6 +345,7 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         }
         style_code = Tensor.fromBlob(npyValues, shape);
     }
+
 
     /**
      * Selection of photo
@@ -844,12 +899,13 @@ public class MainActivity extends AppCompatActivity implements Runnable{
         float[] dummy_style = new float[19*512];
         long[] shape_dummy = {1, 19, 512};
         long startTime = SystemClock.elapsedRealtime();
-        Tensor outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(oneHotInputImageMTensor)).toTensor();
+        Tensor outputTensor;
 
-        /*if (!style_loaded) {
+        if (!style_loaded) {
+            outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(oneHotInputImageMTensor)).toTensor();
         } else {
             outputTensor = mModule.forward(IValue.from(oneHotInputMaskTensor), IValue.from(inputImageTensor), IValue.from(style_code)).toTensor();
-        }*/
+        }
 
         long inferenceTime = SystemClock.elapsedRealtime() - startTime;
         Log.d(TAG,  "inference time (ms): " + inferenceTime);
